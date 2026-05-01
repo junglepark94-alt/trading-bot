@@ -35,7 +35,9 @@ def get_token():
         "appsecret": APP_SECRET
     }
     res = requests.post(url, json=body)
-    token = res.json()["access_token"]
+    data = res.json()
+    print(f"🔍 토큰 응답: {data}")
+    token = data["access_token"]
     print("✅ 토큰 발급 완료")
     return token
 
