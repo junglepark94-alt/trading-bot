@@ -2,7 +2,12 @@ import os
 import requests
 import pandas as pd
 import time
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# ========================
+# 시간대 설정
+# ========================
+KST = timezone(timedelta(hours=9))
 
 # ========================
 # 설정값 (Railway 환경변수에서 읽어옴)
@@ -70,7 +75,7 @@ def get_daily_candles(token, days=20):
         "tr_id": "HHDFS76240000",
         "content-type": "application/json"
     }
-    today = datetime.now().strftime("%Y%m%d")
+    today = datetime.now(KST).strftime("%Y%m%d")
     params = {
         "AUTH": "",
         "EXCD": MARKET,
@@ -153,16 +158,15 @@ def sell_order(token):
 
 
 # ========================
-# 7. 미장 시간 체크
-# 한국시간 기준: 22:30 ~ 05:00 (서머타임 적용 중, 3월~11월)
-#               23:30 ~ 06:00 (서머타임 해제, 11월~3월)
+# 7. 미장 시간 체크 (KST 기준)
+# 서머타임 적용 중 (3월~11월): KST 22:30 ~ 익일 05:00
+# 서머타임 해제 (11월~3월):    KST 23:30 ~ 익일 06:00
 # ========================
 def is_us_market_open():
-    now = datetime.now()
+    now = datetime.now(KST)
     hour = now.hour
     minute = now.minute
 
-    # 서머타임 기준 (현재 적용 중): KST 22:30 ~ 익일 05:00
     if hour == 22 and minute >= 30:
         return True
     if 0 <= hour < 5:
@@ -177,24 +181,25 @@ def is_us_market_open():
 # ========================
 def run_strategy():
     token = get_token()
-    token_time = datetime.now()
+    token_time = datetime.now(KST)
     position = False
 
-    print(f"\n🤖 미국주식 모의투자 봇 시작 - {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    print(f"\n🤖 미국주식 모의투자 봇 시작 - {datetime.now(KST).strftime('%Y-%m-%d %H:%M')} (KST)")
     print(f"종목: Tesla({STOCK_CODE}) | 전략: RSI(14) | 매수 < 30 / 매도 > 70")
     print(f"거래소: NASDAQ | 수량: {QUANTITY}주")
     print("-" * 55)
 
     while True:
-        now = datetime.now()
+        now = datetime.now(KST)
 
         # 토큰 만료 전 재발급 (23시간마다)
-        if (now - token_time).seconds > 23 * 3600:
+        elapsed = (now - token_time).total_seconds()
+        if elapsed > 23 * 3600:
             token = get_token()
             token_time = now
 
         if not is_us_market_open():
-            print(f"⏰ 미장 외 시간 ({now.strftime('%H:%M')}) - 대기 중...")
+            print(f"⏰ 미장 외 시간 ({now.strftime('%H:%M')} KST) - 대기 중...")
             time.sleep(60)
             continue
 
@@ -204,7 +209,7 @@ def run_strategy():
             price = get_price(token)
 
             status = "보유중" if position else "미보유"
-            print(f"[{now.strftime('%H:%M:%S')}] 현재가: ${price:.2f} | RSI: {rsi:.1f} | {status}", end="")
+            print(f"[{now.strftime('%H:%M:%S')} KST] 현재가: ${price:.2f} | RSI: {rsi:.1f} | {status}", end="")
 
             if rsi < 30 and not position:
                 print(" → 🟢 매수 신호!")
@@ -224,7 +229,7 @@ def run_strategy():
             print("토큰 재발급 시도 중...")
             try:
                 token = get_token()
-                token_time = datetime.now()
+                token_time = datetime.now(KST)
             except Exception as e2:
                 print(f"토큰 재발급 실패: {e2}")
 
