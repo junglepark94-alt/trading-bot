@@ -169,6 +169,8 @@ def is_us_market_open():
 
     if hour == 22 and minute >= 30:
         return True
+    if hour == 23:  # 23시 전체 포함
+        return True
     if 0 <= hour < 5:
         return True
     if hour == 5 and minute == 0:
